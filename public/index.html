@@ -444,7 +444,7 @@ const sstep = x => { x = clamp(x, 0, 1); return x * x * (3 - 2 * x); };
 const asst = () => ({
   big:   { snapR: U * 0.11, k: 0.85, tol: U * 0.1,  fill: 0.6,  turn: 4.7, gap: 0.5 },
   mid:   { snapR: U * 0.06, k: 0.5,  tol: U * 0.065, fill: 0.75, turn: 5.4, gap: 0.35 },
-  small: { snapR: U * 0.035, k: 0.2, tol: U * 0.04, fill: 0.88, turn: 6.0, gap: 0.25 }
+  small: { snapR: U * 0.035, k: 0.2, tol: U * 0.04, fill: 0.96, turn: 6.0, gap: 0.25 }
 })[S.assist];
 
 let SH = null, INK = null, SC = {}, phase = 'play', phT = 0, fadeA = 1, inkN = 0;
@@ -458,7 +458,7 @@ function layoutSheet(){
   const top = Math.max(56, H * 0.07), bot = Math.max(100, H * 0.12), side = W * 0.05;
   SH = { x: side, y: top, w: W - side * 2, h: H - top - bot };
 }
-const brushW = () => S.scene === 'fill' ? U * 0.075 : (S.thick === 'thick' ? U * 0.028 : U * 0.015);
+const brushW = () => { if (S.scene === 'trace' && SC.gw) return SC.gw * 0.55; return S.scene === 'fill' ? U * 0.075 : (S.thick === 'thick' ? U * 0.028 : U * 0.015); };
 
 function enter(){
   cancelAll(); layoutSheet(); phase = 'play'; phT = 0; fadeA = 1; stars.length = 0;
@@ -510,8 +510,8 @@ function newDots(){
   SC.ds = ds;
 }
 function newCircle(){
-  const r = Math.min(SH.w, SH.h) * 0.13;
-  Object.assign(SC, { col: INKS[SC.round % 5], cx: SH.x + SH.w / 2, cy: SH.y + SH.h * 0.24, r, demoT: 0 });
+  const r = Math.min(SH.w, SH.h) * 0.2;
+  Object.assign(SC, { col: INKS[SC.round % 5], cx: SH.x + SH.w / 2, cy: SH.y + SH.h * 0.5, r, demoT: 0 });
 }
 function newConnect(){
   const n = S.dots, ds = [], ph = SC.round * 1.7;
@@ -531,6 +531,7 @@ function insideShape(x, y){
   const [a, b, c] = triPts(), sg = (p, q) => (x - q.x) * (p.y - q.y) - (p.x - q.x) * (y - q.y), d1 = sg(a, b), d2 = sg(b, c), d3 = sg(c, a);
   return !((d1 < 0 || d2 < 0 || d3 < 0) && (d1 > 0 || d2 > 0 || d3 > 0));
 }
+function fillClip(x){ const r0 = SC.R; SC.R = r0 * 1.14; shapePath(x); SC.R = r0; x.clip(); }
 function shapePath(x){
   x.beginPath();
   if (SC.kind === 'circle') x.arc(SC.cx, SC.cy, SC.R, 0, Math.PI * 2);
@@ -589,11 +590,11 @@ function drawOver(){
   const k = S.scene;
   if (k === 'trace'){
     const g = SC, r = g.gw * 0.5;
-    if (g.prog < 1) marker(g.pts[0], r, '#9fd1a8', 0.65 + 0.3 * Math.sin(T * 2.2));
+    if (g.prog < 1) marker(g.pts[0], r * 1.5, '#9fd1a8', 1);
     ctx.beginPath(); ctx.arc(g.pts[g.pts.length - 1].x, g.pts[g.pts.length - 1].y, r * 0.9, 0, Math.PI * 2); ctx.strokeStyle = '#e0a63a'; ctx.lineWidth = Math.max(2, r * 0.22); ctx.stroke();
   }
   if (k === 'dots'){
-    const r = S.thick === 'thick' ? U * 0.02 : U * 0.014;
+    const r = S.thick === 'thick' ? U * 0.036 : U * 0.026;
     SC.ds.forEach((d, i) => {
       const lit = d.s <= SC.prog + 0.5, nxt = !lit && (i === 0 || SC.ds[i - 1].s <= SC.prog + 0.5), rr = r * (nxt ? 1.15 + 0.1 * Math.sin(T * 2.4) : 1);
       marker(d.p, rr, lit ? SC.col : (nxt ? '#9fd1a8' : '#d8ccb0'), 1);
@@ -601,9 +602,17 @@ function drawOver(){
   }
   if (k === 'circle'){
     const c = SC, done = c.demoT >= 3, a = -Math.PI / 2 + Math.PI * 2 * sstep(c.demoT / 3);
-    ctx.lineCap = 'round'; ctx.strokeStyle = c.col; ctx.lineWidth = U * 0.02; ctx.globalAlpha *= done ? 0.32 : 0.9;
-    ctx.beginPath(); ctx.arc(c.cx, c.cy, c.r, -Math.PI / 2, done ? Math.PI * 1.5 : a); ctx.stroke(); ctx.globalAlpha /= done ? 0.32 : 0.9;
-    if (!done){ ctx.beginPath(); ctx.arc(c.cx + Math.cos(a) * c.r, c.cy + Math.sin(a) * c.r, U * 0.016, 0, Math.PI * 2); ctx.fillStyle = '#e0a63a'; ctx.fill(); }
+    ctx.lineCap = 'round';
+    if (!done){
+      ctx.strokeStyle = c.col; ctx.lineWidth = U * 0.022; ctx.beginPath(); ctx.arc(c.cx, c.cy, c.r, -Math.PI / 2, a); ctx.stroke();
+      ctx.beginPath(); ctx.arc(c.cx + Math.cos(a) * c.r, c.cy + Math.sin(a) * c.r, U * 0.02, 0, Math.PI * 2); ctx.fillStyle = '#e0a63a'; ctx.fill();
+    } else {
+      ctx.setLineDash([U * 0.014, U * 0.018]); ctx.strokeStyle = 'rgba(120,90,50,.4)'; ctx.lineWidth = U * 0.012;
+      ctx.beginPath(); ctx.arc(c.cx, c.cy, c.r, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+      const th = -Math.PI / 2 + 0.3, px = c.cx + Math.cos(th) * c.r, py = c.cy + Math.sin(th) * c.r, tx = -Math.sin(th), ty = Math.cos(th), s = U * 0.03;
+      marker({ x: c.cx, y: c.cy - c.r }, U * 0.036, '#9fd1a8', 1);
+      ctx.beginPath(); ctx.moveTo(px + tx * s, py + ty * s); ctx.lineTo(px - tx * s * 0.4 - ty * s * 0.8, py - ty * s * 0.4 + tx * s * 0.8); ctx.lineTo(px - tx * s * 0.4 + ty * s * 0.8, py - ty * s * 0.4 - tx * s * 0.8); ctx.closePath(); ctx.fillStyle = '#5aa36e'; ctx.fill();
+    }
   }
   if (k === 'fill'){
     shapePath(ctx); ctx.strokeStyle = edgeCol(); ctx.lineWidth = Math.max(U * 0.012, edgeW() * 3); ctx.lineJoin = 'round'; ctx.stroke();
@@ -611,16 +620,19 @@ function drawOver(){
   }
   if (k === 'connect'){
     const d = SC.ds, a = asst();
-    if (S.assist === 'big' && SC.cur < d.length - 1){
-      ctx.setLineDash([U * 0.012, U * 0.018]); ctx.lineCap = 'round'; ctx.strokeStyle = 'rgba(150,120,70,.3)'; ctx.lineWidth = U * 0.008;
-      ctx.beginPath(); ctx.moveTo(d[SC.cur].x, d[SC.cur].y); ctx.lineTo(d[SC.cur + 1].x, d[SC.cur + 1].y); ctx.stroke(); ctx.setLineDash([]);
-    }
+    ctx.setLineDash([U * 0.012, U * 0.018]); ctx.lineCap = 'round'; ctx.lineWidth = U * 0.01;
+    for (let i = 0; i < d.length - 1; i++){ ctx.strokeStyle = i === SC.cur ? 'rgba(224,164,58,.95)' : 'rgba(150,120,70,.25)'; ctx.beginPath(); ctx.moveTo(d[i].x, d[i].y); ctx.lineTo(d[i + 1].x, d[i + 1].y); ctx.stroke(); }
+    ctx.setLineDash([]);
     d.forEach((p, i) => {
-      const reached = i <= SC.cur, nxt = i === SC.cur + 1, r = U * 0.03 * (nxt ? 1.1 + 0.1 * Math.sin(T * 2.4) : 1);
+      const reached = i <= SC.cur, nxt = i === SC.cur + 1, r = U * 0.042 * (nxt ? 1.1 + 0.1 * Math.sin(T * 2.4) : 1);
       ctx.beginPath(); ctx.arc(p.x, p.y, r * 1.45, 0, Math.PI * 2); ctx.fillStyle = reached ? 'rgba(' + (SC.col === INKS[0] ? '217,96,95' : '224,164,58') + ',.18)' : 'rgba(158,209,168,' + (nxt ? 0.4 : 0.2) + ')'; ctx.fill();
       marker(p, r, reached ? SC.col : (nxt ? '#9fd1a8' : '#d8ccb0'), 1);
     });
   }
+}
+function drawCursors(){
+  if (!['trace', 'dots', 'connect'].includes(S.scene)) return;
+  ptrs.forEach(st => { const q = st.pts[st.pts.length - 1]; ctx.beginPath(); ctx.arc(q.x, q.y, Math.max(U * 0.03, brushW() * 0.9), 0, Math.PI * 2); ctx.strokeStyle = 'rgba(90,64,40,.45)'; ctx.lineWidth = U * 0.004; ctx.stroke(); });
 }
 function drawScene(){
   drawSheet();
@@ -628,6 +640,7 @@ function drawScene(){
   drawUnder();
   ctx.drawImage(INK.c, 0, 0, W, H);
   drawOver();
+  drawCursors();
   ctx.restore();
 }
 
@@ -639,14 +652,14 @@ const maxPtrs = () => S.firstOnly ? 1 : 5;
 const inSheet = p => p.x >= SH.x && p.x <= SH.x + SH.w && p.y >= SH.y && p.y <= SH.y + SH.h;
 function seg(st, np){
   const x = INK.x; x.save();
-  if (S.scene === 'fill'){ shapePath(x); x.clip(); } else { x.beginPath(); x.rect(SH.x, SH.y, SH.w, SH.h); x.clip(); }
+  if (S.scene === 'fill'){ fillClip(x); } else { x.beginPath(); x.rect(SH.x, SH.y, SH.w, SH.h); x.clip(); }
   x.strokeStyle = st.col; x.fillStyle = st.col; x.lineWidth = brushW();
   const m = mid(st.lp, np); x.beginPath(); x.moveTo(st.m.x, st.m.y); x.quadraticCurveTo(st.lp.x, st.lp.y, m.x, m.y); x.stroke();
   st.m = m; st.lp = np; x.restore();
 }
 function dot0(st, p){
   const x = INK.x; x.save();
-  if (S.scene === 'fill'){ shapePath(x); x.clip(); } else { x.beginPath(); x.rect(SH.x, SH.y, SH.w, SH.h); x.clip(); }
+  if (S.scene === 'fill'){ fillClip(x); } else { x.beginPath(); x.rect(SH.x, SH.y, SH.w, SH.h); x.clip(); }
   x.fillStyle = st.col; x.beginPath(); x.arc(p.x, p.y, brushW() / 2, 0, Math.PI * 2); x.fill(); x.restore();
 }
 function reachDot(i, st){
