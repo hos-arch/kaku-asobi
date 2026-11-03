@@ -656,6 +656,7 @@ function drawOver(){
     ctx.beginPath(); ctx.arc(g.pts[g.pts.length - 1].x, g.pts[g.pts.length - 1].y, r * 0.9, 0, Math.PI * 2); ctx.strokeStyle = '#e0a63a'; ctx.lineWidth = Math.max(2, r * 0.22); ctx.stroke();
   }
   if (k === 'dots'){
+    if (SC.prog < SC.L * 0.05) marker(SC.pts[0], U * 0.085, '#9fd1a8', 0.45);
     const r = S.thick === 'thick' ? U * 0.036 : U * 0.026;
     SC.ds.forEach((d, i) => {
       const lit = d.s <= SC.prog + 0.5, nxt = !lit && (i === 0 || SC.ds[i - 1].s <= SC.prog + 0.5), rr = r * (nxt ? 1.15 + 0.1 * Math.sin(T * 2.4) : 1);
@@ -672,7 +673,7 @@ function drawOver(){
       ctx.setLineDash([U * 0.014, U * 0.018]); ctx.strokeStyle = 'rgba(120,90,50,.4)'; ctx.lineWidth = U * 0.012;
       ctx.beginPath(); ctx.arc(c.cx, c.cy, c.r, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
       const th = -Math.PI / 2 + 0.3, px = c.cx + Math.cos(th) * c.r, py = c.cy + Math.sin(th) * c.r, tx = -Math.sin(th), ty = Math.cos(th), s = U * 0.03;
-      marker({ x: c.cx, y: c.cy - c.r }, U * 0.036, '#9fd1a8', 1);
+      marker({ x: c.cx, y: c.cy - c.r }, U * 0.085, '#9fd1a8', 0.45);
       ctx.beginPath(); ctx.moveTo(px + tx * s, py + ty * s); ctx.lineTo(px - tx * s * 0.4 - ty * s * 0.8, py - ty * s * 0.4 + tx * s * 0.8); ctx.lineTo(px - tx * s * 0.4 + ty * s * 0.8, py - ty * s * 0.4 - tx * s * 0.8); ctx.closePath(); ctx.fillStyle = '#5aa36e'; ctx.fill();
     }
   }
@@ -693,8 +694,8 @@ function drawOver(){
   }
 }
 function drawCursors(){
-  if (!['trace', 'dots', 'connect'].includes(S.scene)) return;
-  ptrs.forEach(st => { const q = st.pts[st.pts.length - 1]; ctx.beginPath(); ctx.arc(q.x, q.y, S.scene === 'trace' ? U * 0.09 : Math.max(U * 0.04, brushW() * 0.9), 0, Math.PI * 2); ctx.strokeStyle = 'rgba(90,64,40,.45)'; ctx.lineWidth = U * 0.004; ctx.stroke(); });
+  if (!['trace', 'dots', 'connect', 'circle'].includes(S.scene)) return;
+  ptrs.forEach(st => { const q = st.pts[st.pts.length - 1]; ctx.beginPath(); ctx.arc(q.x, q.y, (S.scene === 'trace' || S.scene === 'dots' || S.scene === 'circle') ? U * 0.09 : Math.max(U * 0.04, brushW() * 0.9), 0, Math.PI * 2); ctx.strokeStyle = 'rgba(90,64,40,.45)'; ctx.lineWidth = U * 0.004; ctx.stroke(); });
 }
 function drawScene(){
   drawSheet();
