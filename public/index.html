@@ -311,7 +311,10 @@ function resize(){
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   U = Math.min(W, H);
   makePaper();
-  if (ready){ cancelAll(); resetScenes(); }
+  if (ready){
+    cancelAll(); const keep = inks.free; inks.free = null; resetScenes();
+    if (keep){ const n = mkInk(); n.x.drawImage(keep.c, 0, 0, keep.w, keep.h); inks.free = n; if (S.scene === 'free') INK = n; }
+  }
 }
 window.addEventListener('resize', resize);
 resize();
@@ -452,7 +455,7 @@ const inks = {};
 function mkInk(){
   const c = document.createElement('canvas'); c.width = Math.round(W * DPR); c.height = Math.round(H * DPR);
   const x = c.getContext('2d'); x.scale(DPR, DPR); x.lineCap = 'round'; x.lineJoin = 'round';
-  return { c, x };
+  return { c, x, w: W, h: H };
 }
 function layoutSheet(){
   const top = Math.max(56, H * 0.07), bot = Math.max(100, H * 0.12), side = W * 0.05;
@@ -505,7 +508,7 @@ function pointAt(g, s){
 function newTrace(){ Object.assign(SC, genPath(), { col: INKS[SC.round % 5], gw: S.thick === 'thick' ? U * 0.085 : U * 0.05 }); }
 function newDots(){
   Object.assign(SC, genPath(), { col: INKS[SC.round % 5], lit: 0 });
-  const sd = U * 0.075, n = Math.max(5, Math.floor(SC.L / sd)), ds = [];
+  const sd = U * 0.16, n = Math.max(3, Math.floor(SC.L / sd)), ds = [];
   for (let k = 0; k <= n; k++){ const s = SC.L * k / n; ds.push({ s, p: pointAt(SC, s) }); }
   SC.ds = ds;
 }
@@ -552,9 +555,50 @@ function markSeg(a, b){
 }
 
 // ---- できた！ ----
+const fx = [];
+let flashA = 0;
+const FXCOL = ['#f2c14e', '#ee8d8d', '#8fc0e2', '#9fd1a8', '#c3a8e0', '#fbe19a'];
+function burst(cx, cy, R){
+  flashA = 1;
+  for (let i = 0; i < 90; i++){
+    const a = Math.random() * Math.PI * 2, sp = U * (0.35 + Math.random() * 1.1);
+    fx.push({ k: i % 3 === 0 ? 'star' : 'conf', x: cx, y: cy, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - U * 0.5, r: U * (0.012 + Math.random() * 0.018), rot: Math.random() * 6, spin: (Math.random() - 0.5) * 12, col: FXCOL[i % FXCOL.length], t: 0, life: 2.2 + Math.random() * 0.9 });
+  }
+  [0, 0.22, 0.44].forEach((d, i) => fx.push({ k: 'ring', x: cx, y: cy, R0: R * (0.5 + i * 0.15), t: -d, life: 1.2, col: FXCOL[i * 2] }));
+}
 function cheer(){
-  [0, 2, 4].forEach((k, i) => setTimeout(() => ping(BELL[k], 0.05, 1.0, 2.76), i * 170));
-  addStars(SH.x + SH.w / 2, SH.y + SH.h / 2, Math.min(SH.w, SH.h) * 0.3, LOOK[S.look].stars * 2);
+  const cx = SC.cx !== undefined ? SC.cx : SH.x + SH.w / 2, cy = SC.cy !== undefined ? SC.cy : SH.y + SH.h / 2;
+  const R = S.scene === 'fill' ? SC.R : Math.min(SH.w, SH.h) * 0.3;
+  [0, 2, 4, 5, 7, 4, 2, 0].forEach((k, i) => setTimeout(() => ping(BELL[k], 0.06, 1.1, 2.76), i * 110));
+  burst(cx, cy, R);
+}
+function updFx(dt){
+  flashA = Math.max(0, flashA - dt * 1.8);
+  for (let i = fx.length - 1; i >= 0; i--){
+    const f = fx[i]; f.t += dt;
+    if (f.t > f.life){ fx.splice(i, 1); continue; }
+    if (f.k !== 'ring' && f.t > 0){ f.vy += U * 1.4 * dt; f.vx *= Math.exp(-dt * 1.2); f.vy *= Math.exp(-dt * 0.8); f.x += f.vx * dt; f.y += f.vy * dt; f.rot += f.spin * dt; }
+  }
+}
+function drawFx(){
+  if (flashA > 0.01){ ctx.fillStyle = 'rgba(255,244,210,' + (0.5 * flashA).toFixed(3) + ')'; ctx.fillRect(0, 0, W, H); }
+  fx.forEach(f => {
+    if (f.t < 0) return;
+    const u = f.t / f.life;
+    if (f.k === 'ring'){
+      const rr = f.R0 + (Math.max(W, H) * 0.5 - f.R0) * (1 - Math.pow(1 - u, 3));
+      ctx.beginPath(); ctx.arc(f.x, f.y, rr, 0, Math.PI * 2); ctx.strokeStyle = f.col; ctx.globalAlpha = (1 - u) * 0.9; ctx.lineWidth = U * 0.03 * (1 - u) + 2; ctx.stroke(); ctx.globalAlpha = 1;
+      return;
+    }
+    ctx.save(); ctx.globalAlpha = Math.max(0, 1 - Math.pow(u, 2.2)); ctx.translate(f.x, f.y); ctx.rotate(f.rot);
+    if (f.k === 'conf'){ ctx.fillStyle = f.col; ctx.fillRect(-f.r * 0.5, -f.r * 0.9, f.r, f.r * 1.8); }
+    else {
+      ctx.beginPath();
+      for (let i = 0; i < 8; i++){ const a = i * Math.PI / 4, rr = i % 2 ? f.r * 0.45 : f.r * 1.3; i ? ctx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr) : ctx.moveTo(Math.cos(a) * rr, Math.sin(a) * rr); }
+      ctx.closePath(); ctx.fillStyle = '#f2c14e'; ctx.fill(); ctx.strokeStyle = edgeCol(); ctx.lineWidth = edgeW() * 0.8; ctx.stroke();
+    }
+    ctx.restore();
+  });
 }
 function finish(){
   if (phase !== 'play') return;
@@ -590,7 +634,7 @@ function drawOver(){
   const k = S.scene;
   if (k === 'trace'){
     const g = SC, r = g.gw * 0.5;
-    if (g.prog < 1) marker(g.pts[0], r * 1.5, '#9fd1a8', 1);
+    if (g.prog < 1) marker(g.pts[0], Math.max(U * 0.085, g.gw * 1.2), '#9fd1a8', 0.45);
     ctx.beginPath(); ctx.arc(g.pts[g.pts.length - 1].x, g.pts[g.pts.length - 1].y, r * 0.9, 0, Math.PI * 2); ctx.strokeStyle = '#e0a63a'; ctx.lineWidth = Math.max(2, r * 0.22); ctx.stroke();
   }
   if (k === 'dots'){
@@ -632,7 +676,7 @@ function drawOver(){
 }
 function drawCursors(){
   if (!['trace', 'dots', 'connect'].includes(S.scene)) return;
-  ptrs.forEach(st => { const q = st.pts[st.pts.length - 1]; ctx.beginPath(); ctx.arc(q.x, q.y, Math.max(U * 0.03, brushW() * 0.9), 0, Math.PI * 2); ctx.strokeStyle = 'rgba(90,64,40,.45)'; ctx.lineWidth = U * 0.004; ctx.stroke(); });
+  ptrs.forEach(st => { const q = st.pts[st.pts.length - 1]; ctx.beginPath(); ctx.arc(q.x, q.y, S.scene === 'trace' ? U * 0.09 : Math.max(U * 0.04, brushW() * 0.9), 0, Math.PI * 2); ctx.strokeStyle = 'rgba(90,64,40,.45)'; ctx.lineWidth = U * 0.004; ctx.stroke(); });
 }
 function drawScene(){
   drawSheet();
@@ -747,7 +791,7 @@ function frame(now){
   if (Math.abs(dusk - duskApplied) > 0.02){ duskApplied = dusk; applyVol(); }
   let sp = 0;
   if (!frozen){
-    T += dt; updStars(dt);
+    T += dt; updStars(dt); updFx(dt);
     if (S.scene === 'circle' && SC.demoT < 3) SC.demoT = Math.min(3, SC.demoT + dt);
     let nearNow = SC.near; SC.near = false;
     if (S.scene === 'trace') SC.glow += ((nearNow ? 1 : 0) - SC.glow) * (1 - Math.exp(-dt / 0.15));
@@ -765,6 +809,7 @@ function frame(now){
   drawWash();
   drawScene();
   drawStars();
+  drawFx();
   if (dusk > 0.001){
     ctx.fillStyle = 'rgba(226,150,118,' + (0.30 * dusk).toFixed(3) + ')'; ctx.fillRect(0, 0, W, H);
     ctx.fillStyle = 'rgba(90,70,110,' + (0.10 * dusk).toFixed(3) + ')'; ctx.fillRect(0, 0, W, H);
