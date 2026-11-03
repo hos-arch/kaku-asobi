@@ -330,7 +330,7 @@ window.addEventListener('resize', resize);
 resize();
 
 // ---- 設定（保存しない）----
-const S = { scene: 'free', path: 'line', thick: 'thick', shape: 'circle', dots: 5, assist: 'mid', firstOnly: true, look: 'mid', cel: 'mid', vol: 30, sound: true };
+const S = { scene: 'free', path: 'line', thick: 'thick', shape: 'circle', dots: 5, assist: 'mid', firstOnly: true, look: 'mid', cel: 'soft', vol: 30, sound: true };
 // 見た目の強さ：edge＝ふちの線、glow＝入れ口の光、stars＝星、bits＝紙くず、light＝明かり
 const LOOK = {
   soft:   { edge: 0.14, lw: 1,   glow: 0.18, stars: 2, bits: 4,  light: 0.45 },
@@ -570,12 +570,12 @@ let flashA = 0;
 const FXCOL = ['#f2c14e', '#ee8d8d', '#8fc0e2', '#9fd1a8', '#c3a8e0', '#fbe19a'];
 const CEL = {
   none: { n: 0,  rings: 0, flash: 0,    bells: 0, sz: 1 },
-  soft: { n: 24, rings: 1, flash: 0.12, bells: 3, sz: 0.7 },
-  mid:  { n: 48, rings: 2, flash: 0.25, bells: 5, sz: 0.85 },
+  soft: { n: 24, rings: 1, flash: 0,    bells: 3, sz: 0.7 },
+  mid:  { n: 48, rings: 2, flash: 0,    bells: 5, sz: 0.85 },
   big:  { n: 90, rings: 3, flash: 0.5,  bells: 8, sz: 1 }
 };
 function burst(cx, cy, R){
-  const C = CEL[S.cel] || CEL.mid; if (!C.n && !C.rings) return;
+  const C = CEL[S.cel] || CEL.soft; if (!C.n && !C.rings) return;
   flashA = C.flash;
   for (let i = 0; i < C.n; i++){
     const a = Math.random() * Math.PI * 2, sp = U * (0.35 + Math.random() * 1.1) * C.sz;
@@ -584,7 +584,7 @@ function burst(cx, cy, R){
   for (let i = 0; i < C.rings; i++) fx.push({ k: 'ring', x: cx, y: cy, R0: R * (0.5 + i * 0.15), t: -i * 0.22, life: 1.2, col: FXCOL[i * 2] });
 }
 function cheer(){
-  const C = CEL[S.cel] || CEL.mid; if (!C.bells && !C.n) return;
+  const C = CEL[S.cel] || CEL.soft; if (!C.bells && !C.n) return;
   const cx = SC.cx !== undefined ? SC.cx : SH.x + SH.w / 2, cy = SC.cy !== undefined ? SC.cy : SH.y + SH.h / 2;
   const R = S.scene === 'fill' ? SC.R : Math.min(SH.w, SH.h) * 0.3;
   [0, 2, 4, 5, 7, 4, 2, 0].slice(0, C.bells).forEach((k, i) => setTimeout(() => ping(BELL[k], 0.06, 1.1, 2.76), i * 110));
@@ -856,8 +856,8 @@ gear.addEventListener('pointerdown', e => {
 gear.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); openPanel(); } });
 
 function curOpts(){ return { cel: S.cel, scene: S.scene, path: S.path, thick: S.thick, shape: S.shape, dots: String(S.dots), assist: S.assist, touch: S.firstOnly ? 'first' : 'all', look: S.look, vol: S.sound ? String(S.vol) : '0' }; }
-const MORE_DEF = { touch: 'first', look: 'mid', vol: '30', cel: 'mid' };
-const MORE_LBL = { cel: { none: 'お祝い：なし', soft: 'お祝い：控えめ', big: 'お祝い：派手' }, touch: { all: '触れ方：どの指でも' }, look: { soft: '見た目：やさしい', strong: '見た目：はっきり' }, vol: { '0': '音：なし', '15': '音：小', '45': '音：大' } };
+const MORE_DEF = { touch: 'first', look: 'mid', vol: '30', cel: 'soft' };
+const MORE_LBL = { cel: { none: 'お祝い：なし', mid: 'お祝い：ふつう', big: 'お祝い：派手' }, touch: { all: '触れ方：どの指でも' }, look: { soft: '見た目：やさしい', strong: '見た目：はっきり' }, vol: { '0': '音：なし', '15': '音：小', '45': '音：大' } };
 function markOpts(){
   const cur = curOpts();
   document.querySelectorAll('#panel [data-set]').forEach(b => b.setAttribute('aria-pressed', String(cur[b.dataset.set] === b.dataset.v)));
